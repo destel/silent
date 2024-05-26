@@ -16,14 +16,22 @@ func DecodeBase64(t *testing.T, s string) []byte {
 
 func RequireEqual(t *testing.T, actual, expected any) {
 	t.Helper()
-	// quick and dirty. // todo: improve
-	defer func() {
-		if r := recover(); r != nil {
-			if !reflect.DeepEqual(actual, expected) {
+
+	ra := reflect.ValueOf(actual)
+	re := reflect.ValueOf(expected)
+
+	if ra.Kind() == reflect.Slice && re.Kind() == reflect.Slice {
+		if ra.Len() != re.Len() {
+			t.Fatalf("expected %v, got %v", expected, actual)
+		}
+
+		for i := 0; i < ra.Len(); i++ {
+			if ra.Index(i).Interface() != re.Index(i).Interface() {
 				t.Fatalf("expected %v, got %v", expected, actual)
 			}
 		}
-	}()
+		return
+	}
 
 	if actual != expected {
 		t.Fatalf("expected %v, got %v", expected, actual)

@@ -41,6 +41,10 @@ func (s *MultiKeyCrypter) AddKey(keyID uint32, key []byte) {
 }
 
 func (s *MultiKeyCrypter) Encrypt(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+
 	size, err := s.EncryptedSize(len(data))
 	if err != nil {
 		return nil, err
@@ -66,6 +70,10 @@ func (s *MultiKeyCrypter) Encrypt(data []byte) ([]byte, error) {
 }
 
 func (s *MultiKeyCrypter) Decrypt(data []byte) ([]byte, error) {
+	if len(data) == 0 {
+		return nil, nil
+	}
+
 	size := len(data)
 	var buf bytes.Buffer
 	buf.Grow(size)
@@ -84,6 +92,10 @@ func (s *MultiKeyCrypter) Decrypt(data []byte) ([]byte, error) {
 
 // todo: take and return int?
 func (s *MultiKeyCrypter) EncryptedSize(dataSize int) (int, error) {
+	if dataSize == 0 {
+		return 0, nil
+	}
+
 	if s.Bypass {
 		return dataSize + 1, nil
 	}
@@ -96,38 +108,68 @@ func (s *MultiKeyCrypter) EncryptedSize(dataSize int) (int, error) {
 }
 
 func (s *MultiKeyCrypter) EncryptWriter(w io.Writer) (io.WriteCloser, error) {
-	if s.Bypass {
-		if err := writeByte(w, '#'); err != nil {
-			return nil, err
+	ew := &dynamicWriter{}
+
+	ew.CloseFunc = func() error {
+		if closer, ok := w.(io.Closer); ok {
+			ew.CloseFunc = nil
+			return closer.Close()
 		}
 
-		return nopCloserWriter{w}, nil
+		ew.CloseFunc = nil
+		return nil
 	}
 
-	// write version
-	if err := writeByte(w, 1); err != nil {
-		return nil, err
+	ew.WriteFunc = func(p []byte) (n int, err error) {
+		if len(p) == 0 {
+			return 0, nil
+		}
+
+		if s.Bypass {
+			if err := writeByte(w, '#'); err != nil {
+				return 0, err
+			}
+
+			// forward this and subsequent calls directly to w
+			ew.WriteFunc = w.Write
+			return ew.Write(p)
+		}
+
+		if err := writeByte(w, 1); err != nil {
+			return 0, err
+		}
+
+		if err := writeUint32(w, s.lastKeyID); err != nil {
+			return 0, err
+		}
+
+		key := s.keys[s.lastKeyID]
+		if key == nil {
+			panic("misconfiguration: no keys were added")
+		}
+
+		sioConfig := s.sioConfigTemplate
+		sioConfig.Key = key[:32] // todo: require exactly 32 bytes key?
+
+		sioWriter, err := sio.EncryptWriter(w, sioConfig)
+		if err != nil {
+			return 0, err
+		}
+
+		// forward this and subsequent calls directly to sioWriter
+		ew.WriteFunc = sioWriter.Write
+		ew.CloseFunc = sioWriter.Close
+		return ew.Write(p)
 	}
 
-	// write key id
-	if err := writeUint32(w, s.lastKeyID); err != nil {
-		return nil, err
-	}
-
-	// write encrypted data
-	key := s.keys[s.lastKeyID]
-	if key == nil {
-		panic("misconfiguration: no keys were added")
-	}
-
-	sioConfig := s.sioConfigTemplate
-	sioConfig.Key = key[:32] // todo: require exactly 32 bytes key?
-
-	return sio.EncryptWriter(w, sioConfig)
+	return ew, nil
 }
 
 func (s *MultiKeyCrypter) DecryptReader(r io.Reader) (io.Reader, error) {
 	version, err := readByte(r)
+	if errors.Is(err, io.EOF) {
+		return bytes.NewReader(nil), nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -149,6 +191,19 @@ func (s *MultiKeyCrypter) DecryptReader(r io.Reader) (io.Reader, error) {
 
 		sioConfig := s.sioConfigTemplate
 		sioConfig.Key = key[:32] // todo: require exactly 32 bytes key?
+
+		// sio retunrns an errorfor empty data, so we need to handle it here
+		var firstByte [1]byte
+		_, err = io.ReadFull(r, firstByte[:])
+		if errors.Is(err, io.EOF) {
+			return bytes.NewReader(nil), nil
+		}
+		if err != nil {
+			return nil, err
+		}
+
+		// "put back" the first byte
+		r = io.MultiReader(bytes.NewReader(firstByte[:]), r)
 
 		return sio.DecryptReader(r, sioConfig) // todo: properly handle errors
 
@@ -196,8 +251,18 @@ func writeUint32(w io.Writer, value uint32) error {
 	return err
 }
 
-type nopCloserWriter struct {
-	io.Writer
+type dynamicWriter struct {
+	WriteFunc func(p []byte) (n int, err error)
+	CloseFunc func() error
 }
 
-func (nopCloserWriter) Close() error { return nil }
+func (w *dynamicWriter) Write(p []byte) (n int, err error) {
+	return w.WriteFunc(p)
+}
+
+func (w *dynamicWriter) Close() error {
+	if w.CloseFunc == nil {
+		return nil
+	}
+	return w.CloseFunc()
+}
