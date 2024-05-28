@@ -64,7 +64,7 @@ func TestEncryptedValue(t *testing.T) {
 
 	type dummy1 struct{}
 	type EncryptedValue1 = EncryptedValueFactory[dummy1]
-	RegisterCrypterFor[EncryptedValue1](&c1)
+	BindCrypterTo[EncryptedValue1](&c1)
 
 	c2 := MultiKeyCrypter{}
 	c2.AddKey(0x1, DecodeBase64(t, "Qpk1tvmH8nAljiKyyDaGJXRH82ZjWtEX+2PR50sB5WU="))
@@ -72,7 +72,7 @@ func TestEncryptedValue(t *testing.T) {
 
 	type dummy2 struct{}
 	type EncryptedValue2 = EncryptedValueFactory[dummy2]
-	RegisterCrypterFor[EncryptedValue2](&c2)
+	BindCrypterTo[EncryptedValue2](&c2)
 
 	t.Run("encode/decode", func(t *testing.T) {
 		runValueSubtestsJSON[EncryptedValue1](t, "JSON MultiKeyCrypter")

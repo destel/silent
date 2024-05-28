@@ -16,7 +16,7 @@ func init() {
 	c.AddKey(0x1, MustDecodeBase64("Qpk1tvmH8nAljiKyyDaGJXRH82ZjWtEX+2PR50sB5WU="))
 	//c.Bypass = true
 
-	silent.RegisterCrypterFor[silent.EncryptedValue](&c)
+	silent.BindCrypterTo[silent.EncryptedValue](&c)
 }
 
 func MustDecodeBase64(s string) []byte {

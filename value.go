@@ -33,13 +33,12 @@ type crypterMapping struct {
 
 var crypters []crypterMapping
 
-// RegisterCrypterFor registers a crypter for a specific EncryptedValue type.
+// BindCrypterTo registers a crypter for a specific EncryptedValue type.
 // Example usage:
 //
-//	RegisterCrypterFor[silent.EncryptedValue](&crypter)
-func RegisterCrypterFor[F EncryptedValueFactory[T], T any](c Crypter) {
+//	BindCrypterTo[silent.EncryptedValue](&crypter)
+func BindCrypterTo[F EncryptedValueFactory[T], T any](c Crypter) {
 	// this full scan loop is about 10x faster than map in this scenario
-	// todo: add benchmark
 	for _, c := range crypters {
 		if _, ok := c.Zero.(T); ok {
 			panic("misconfigurtion: crypter already registered")

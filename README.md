@@ -5,6 +5,7 @@ True to its name, it operates silently, making your code less verbose and more s
 
 
 ## Key features
+- Zero boilerplate: configure encryption once and use it everywhere
 - Pluggable Crypter interface for custom encryption strategies
 - MultiKeyCrypter: Built-in crypter supporting key rotation, powered by MinIO encryption-at-rest library
 - HashiCorp Vault Crypter: Integration with HashiCorp Vault encryption service (coming soon)
@@ -26,10 +27,10 @@ Library is built upon three core concepts that work together to provide a simple
   - Defines the _Encrypt_ and _Decrypt_ methods
   - Allows for custom encryption strategies
 - EncryptedValue type 
-  - Automatically handles encryption and decryption
+  - Transparently handles encryption and decryption
   - Abstracts away the complexity of working with encrypted data
-- RegisterCrypterFor function
-  - Binds a crypter to an EncryptedValue type
+- BindCrypterTo function
+  - Binds a crypter instance to an EncryptedValue type
 
 
 ## Usage
@@ -37,8 +38,8 @@ Library is built upon three core concepts that work together to provide a simple
 // Create a Crypter instance
 var crypter silent.Crypter = ... // Initialize crypter
 
-// Register the Crypter for the EncryptedValue type
-silent.RegisterCrypterFor[silent.EncryptedValue](crypter)
+// Bind the crypter to the EncryptedValue type
+silent.BindCrypterTo[silent.EncryptedValue](crypter)
 
 // Use EncryptedValue in your models
 type User struct {
@@ -77,7 +78,7 @@ crypter := silent.MultiKeyCrypter{}
 crypter.AddKey(1, []byte("your-encryption-key-1")) // never hardcode keys in production
 crypter.AddKey(2, []byte("your-encryption-key-2"))
 
-silent.RegisterCrypterFor[silent.EncryptedValue](&crypter)
+silent.BindCrypterTo[silent.EncryptedValue](&crypter)
 ```
 
 To rotate keys, simply add a new key with a unique identifier, without removing the old keys:
@@ -93,7 +94,7 @@ crypter := silent.MultiKeyCrypter{}
 crypter.AddKey(1, []byte("your-encryption-key"))
 crypter.Bypass = true
 
-silent.RegisterCrypterFor[silent.EncryptedValue](&crypter)
+silent.BindCrypterTo[silent.EncryptedValue](&crypter)
 ```
 
 ### Best practices
@@ -148,7 +149,7 @@ type dummyType struct{} // this won't be used in your code
 type CustomEncryptedValue = silent.EncryptedValueFactory[dummyType]
 
 // Associate it with its own crypter
-silent.RegisterCrypterFor[CustomEncryptedValue](customCrypter)
+silent.BindCrypterTo[CustomEncryptedValue](customCrypter)
 ```
 
 Now, you can use different encryption strategies or keys for different parts of your application.
