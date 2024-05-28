@@ -4,15 +4,15 @@ It eliminates boilerplate code, allowing you to manage sensitive data with minim
 True to its name, it operates silently, making your code less verbose and more secure. 
 
 
+> ⚠️ **Warning**: This library is in early development stage and should not be used in production yet.
+
+
 ## Key features
 - Zero boilerplate: configure encryption once and use it everywhere
 - Pluggable Crypter interface for custom encryption strategies
-- MultiKeyCrypter: Built-in crypter supporting key rotation, powered by MinIO encryption-at-rest library
-- HashiCorp Vault Crypter: Integration with HashiCorp Vault encryption service (coming soon)
+- Built-in crypter that supports key rotation and powered by the encryption-at-rest library from [MinIO](https://github.com/minio/sio)
+- HashiCorp Vault Adapter: Integration with HashiCorp Vault encryption service (coming soon)
 - Support for SQL databases, JSON serialization, and more formats (BSON and others coming soon)
-
-
-> ⚠️ **Warning**: This library is in early development stage and should not be used in production yet.
 
 
 ## Installation
@@ -21,19 +21,8 @@ go get github.com/destel/silent
 ```
 
 
-## Design philosophy
-Library is built upon three core concepts that work together to provide a simple and flexible way to encrypt and decrypt sensitive data:
-- Crypter Interface
-  - Defines the _Encrypt_ and _Decrypt_ methods
-  - Allows for custom encryption strategies
-- EncryptedValue type 
-  - Transparently handles encryption and decryption
-  - Abstracts away the complexity of working with encrypted data
-- BindCrypterTo function
-  - Binds a crypter instance to an EncryptedValue type
-
-
-## Usage
+## Basic usage
+[Full runnable example](https://pkg.go.dev/github.com/destel/silent#example-package-DatabaseEncryptAndDecrypt)
 ```go
 // Create a Crypter instance
 var crypter silent.Crypter = ... // Initialize crypter
@@ -52,9 +41,24 @@ user := User{
     Token:    silent.EncryptedValue("some token"),
 }
 
-// Save the user to the database as usual
+// Work with your models as usual
 res, err := db.ExecContext(ctx, `INSERT INTO users (username, token) VALUES (?, ?)`, user.Username, user.Token)
 ```
+
+
+## Design philosophy
+Library is built upon three core concepts that work together to provide a simple and flexible way to encrypt and decrypt sensitive data:
+- Crypter Interface
+  - Defines the Encrypt and Decrypt methods
+  - Allows for custom encryption strategies
+- EncryptedValue type 
+  - Transparently handles encryption and decryption
+  - Abstracts away the complexity of working with encrypted data
+- BindCrypterTo function
+  - Binds a crypter instance to an EncryptedValue type
+
+
+
 
 
 ## MultiKeyCrypter
@@ -71,8 +75,9 @@ making it easy to maintain the security of your encrypted data over time.
 
 
 ### Usage
-To use MultiKeyCrypter, simply create an instance and add your encryption keys with unique IDs.
-MultiKeyCrypter uses the last added key for encryption, while allowing decryption using any of the added keys.
+To use MultiKeyCrypter, simply create an instance, then add your encryption keys with unique IDs.
+MultiKeyCrypter uses the last added key for encryption and automatically selects 
+the appropriate key for decryption based on the key ID embedded in the encrypted data
 ```go
 crypter := silent.MultiKeyCrypter{}
 crypter.AddKey(1, []byte("your-encryption-key-1")) // never hardcode keys in production
@@ -87,8 +92,8 @@ crypter.AddKey(3, []byte("your-new-encryption-key"))
 ```
 
 MultiKeyCrypter also supports a bypass mode, which is useful for testing and debugging in development environments. 
-When bypass mode is enabled, data is not encrypted but is still prefixed with '#' to identify it as encrypted data.
-
+In bypass mode data is prefixed with '#' instead of being encrypted, making it readable in plain text.
+Decryption is still performed as usual, allowing to work with both encrypted and plain text data in the same environment.
 ```go
 crypter := silent.MultiKeyCrypter{}
 crypter.AddKey(1, []byte("your-encryption-key"))
@@ -98,7 +103,8 @@ silent.BindCrypterTo[silent.EncryptedValue](&crypter)
 ```
 
 ### Best practices
-- Never hardcode encryption keys in your code. Use a secure key management system to store and manage your keys.
+- Never hardcode encryption keys in your code
+- Use a secure key management system to store and manage your keys
 - Rotate your encryption keys regularly
 
 
@@ -121,6 +127,8 @@ This includes:
 - Caches
 
 Simply use EncryptedValue in your structs, and Silent will handle the encryption and decryption transparently whenever the data is serialized or deserialized.
+
+[Full runnable example](https://pkg.go.dev/github.com/destel/silent#example-package-JsonEncryptAndDecrypt)
 ```go
 type User struct {
     Username string                `json:"username"`
@@ -133,22 +141,23 @@ I'm actively working on expanding Silent's support for more formats and storage 
 The first stable release will include support for BSON serialization, used in MongoDB.
 
  
-## Creating custom EncryptedValue types
+## Advanced usage: creating custom EncryptedValue types
 In some scenarios, you may need to use different encryption strategies or keys for different parts of your application. 
 For example, you might have a requirement to encrypt sensitive user data with a specific encryption algorithm, 
 while system-level data needs to be encrypted with a different algorithm or key. 
 Silent provides the flexibility to handle such cases by allowing you to create custom EncryptedValue types, 
-each with its own associated Crypter.
+each bound to its own crypter instance.
 
-Silent uses a type factory pattern to create custom EncryptedValue types. Due to limitations in Go's type system, 
-a unique dummy type is required to create distinct EncryptedValue types.
+Silent uses a type factory pattern to create custom EncryptedValue types. 
+To ensure that each custom EncryptedValue type is unique, Silent employs a trick of 
+creating distinct dummy types that are not used later in the code.
 
 ```go
 // Define a type
 type dummyType struct{} // this won't be used in your code
 type CustomEncryptedValue = silent.EncryptedValueFactory[dummyType]
 
-// Associate it with its own crypter
+// Bind it to its own crypter
 silent.BindCrypterTo[CustomEncryptedValue](customCrypter)
 ```
 

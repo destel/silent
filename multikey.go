@@ -14,7 +14,7 @@ var (
 )
 
 // MultiKeyCrypter is a [Crypter] implementation that supports multiple encryption keys and seamless key rotation.
-// It uses the most recently added key for encryption and automatically selects the appropriate key for decryption
+// It uses the last added key for encryption and automatically selects the appropriate key for decryption
 // based on the key ID embedded in the encrypted data.
 // This design simplifies adding new keys, while maintaining compatibility with previously used keys.
 type MultiKeyCrypter struct {
