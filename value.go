@@ -8,11 +8,19 @@ import (
 	"unicode/utf8"
 )
 
+// EncryptedValueFactory is a generic type factory for creating custom [EncryptedValue] types.
+// To define a new EncryptedValue type, create a unique dummy type and use it as the generic parameter:
+//
+//	type dummy1 struct{} // this won't be used in your code
+//	type MyEncryptedValue = EncryptedValueFactory[dummy1]
 type EncryptedValueFactory[T any] []byte
 
 type dummy struct{}
+
+// EncryptedValue is a built-in type that is automatically encrypted when written to, and decrypted when read from, the database.
 type EncryptedValue = EncryptedValueFactory[dummy]
 
+// Crypter is an interface that can be implemented to provide a custom encryption strategy
 type Crypter interface {
 	Encrypt(data []byte) ([]byte, error)
 	Decrypt(data []byte) ([]byte, error)
@@ -25,6 +33,10 @@ type crypterMapping struct {
 
 var crypters []crypterMapping
 
+// RegisterCrypterFor registers a crypter for a specific EncryptedValue type.
+// Example usage:
+//
+//	RegisterCrypterFor[silent.EncryptedValue](&crypter)
 func RegisterCrypterFor[F EncryptedValueFactory[T], T any](c Crypter) {
 	// this full scan loop is about 10x faster than map in this scenario
 	// todo: add benchmark
@@ -51,10 +63,15 @@ func getCrypterFor[T any]() Crypter {
 	panic("misconfiguration: no crypter registered for this type")
 }
 
+// String returns a string representation of the EncryptedValue
 func (v EncryptedValueFactory[T]) String() string {
 	return fmt.Sprintf("EncryptedValue(%s)", string(v))
 }
 
+// MarshalJSON encrypts the value and marshals it into JSON format.
+//   - If the value is empty, it is marshalled as a JSON representation of an empty string ("").
+//   - If the encrypted data forms a valid UTF-8 string, it is marshaled as a string prefixed with '#'.
+//   - Otherwise, the data is marshaled as a base64-encoded string.
 func (v EncryptedValueFactory[T]) MarshalJSON() ([]byte, error) {
 	if len(v) == 0 {
 		return []byte(`""`), nil
@@ -88,6 +105,7 @@ func (v EncryptedValueFactory[T]) MarshalJSON() ([]byte, error) {
 
 }
 
+// UnmarshalJSON decrypts the value from JSON.
 func (v *EncryptedValueFactory[T]) UnmarshalJSON(data []byte) error {
 	if s := string(data); s == `""` || s == `null` {
 		*v = nil
@@ -119,6 +137,7 @@ func (v *EncryptedValueFactory[T]) UnmarshalJSON(data []byte) error {
 	return err
 }
 
+// Value is a driver.Valuer implementation. It encrypts the value and returns a byte slice suitable for database storage.
 func (v EncryptedValueFactory[T]) Value() (driver.Value, error) {
 	if len(v) == 0 {
 		return []byte{}, nil
@@ -130,6 +149,7 @@ func (v EncryptedValueFactory[T]) Value() (driver.Value, error) {
 	return encData, err
 }
 
+// Scan is a sql.Scanner implementation. It decrypts the value from the database.
 func (v *EncryptedValueFactory[T]) Scan(value interface{}) error {
 	crypter := getCrypterFor[T]()
 
