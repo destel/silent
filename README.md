@@ -11,12 +11,12 @@ True to its name, it operates silently, making your code less verbose and more s
 - Support for SQL databases, JSON serialization, and more formats (BSON and others coming soon)
 
 
-> ⚠️ Warning: This library is in early development stage and should not be used in production yet.
+> ⚠️ **Warning**: This library is in early development stage and should not be used in production yet.
 
 
 ## Installation
 ```bash
-go get github.com/destel/rill
+go get github.com/destel/silent
 ```
 
 
