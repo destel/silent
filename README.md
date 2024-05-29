@@ -70,7 +70,7 @@ making it easy to maintain the security of your encrypted data over time.
 ### Features
 - Support for multiple encryption keys
 - Zero downtime key rotation
-- Powered by the MinIO encryption-at-rest [library](https://github.com/minio/sio), ensuring strong security
+- Powered by the [MinIO](https://min.io/) encryption-at-rest [library](https://github.com/minio/sio), ensuring strong security
 - Bypass mode for easy testing and debugging in development environments
 
 
@@ -91,6 +91,7 @@ To rotate keys, simply add a new key with a unique identifier, without removing 
 crypter.AddKey(3, []byte("your-new-encryption-key"))
 ```
 
+### Bypass mode
 MultiKeyCrypter also supports a bypass mode, which is useful for testing and debugging in development environments. 
 In bypass mode data is prefixed with '#' instead of being encrypted, making it readable in plain text.
 Decryption is still performed as usual, allowing to work with both encrypted and plain text data in the same environment.
