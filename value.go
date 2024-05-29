@@ -33,7 +33,7 @@ type crypterMapping struct {
 
 var crypters []crypterMapping
 
-// BindCrypterTo registers a crypter for a specific EncryptedValue type.
+// BindCrypterTo binds a crypter instance to a specific EncryptedValue type.
 // Example usage:
 //
 //	BindCrypterTo[silent.EncryptedValue](&crypter)
