@@ -4,7 +4,9 @@ It eliminates boilerplate code, allowing you to manage sensitive data with minim
 True to its name, it operates silently, making your code less verbose and more secure. 
 
 
-> ⚠️ **Warning**: This library is in early development stage and should not be used in production yet.
+> ⚠️ **Warning**: This is a working prototype, but it's still in the early development stage, 
+> and should not be used in production. While core ideas will remain the same, 
+> design, API and data format is not yet stable and may change in future updates.
 
 
 ## Key features
@@ -22,14 +24,10 @@ go get github.com/destel/silent
 
 
 ## Basic usage
-[Full runnable example](https://pkg.go.dev/github.com/destel/silent#example-package-DatabaseEncryptAndDecrypt)
+Using silent to encrypt columns in your database is incredibly simple. 
+Just use silent.EncryptedValue instead of regular strings in your models, then work with your models as usual. 
+Silent handles the encryption and decryption seamlessly behind the scenes.
 ```go
-// Create a Crypter instance
-var crypter silent.Crypter = ... // Initialize crypter
-
-// Bind the crypter to the EncryptedValue type
-silent.BindCrypterTo[silent.EncryptedValue](crypter)
-
 // Use EncryptedValue in your models
 type User struct {
     Username string
@@ -44,6 +42,21 @@ user := User{
 // Work with your models as usual
 res, err := db.ExecContext(ctx, `INSERT INTO users (username, token) VALUES (?, ?)`, user.Username, user.Token)
 ```
+
+Before you start using silent, you'll need to initialize it once at the start of your application:
+```go
+// Create a Crypter instance
+var crypter silent.Crypter = ... // Initialize crypter
+
+// Bind the crypter to the EncryptedValue type
+silent.BindCrypterTo[silent.EncryptedValue](crypter)
+```
+
+And that's it! With just a few lines of code, you can add encryption at rest to your database fields, 
+ensuring the security of sensitive data without the hassle of complex setup or extensive code changes.
+
+[Full runnable example](https://pkg.go.dev/github.com/destel/silent#example-package-DatabaseEncryptAndDecrypt)
+
 
 
 ## Design philosophy
